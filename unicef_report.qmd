@@ -1,0 +1,184 @@
+
+---
+title: "Does Money Buy Health? A Global Look at GDP and Life Expectancy"
+author: "Jafar"
+date: "April 26, 2025"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+---
+
+# Introduction
+
+We use economic progress as the main indicator of national success within our globalized framework of today. Will rising economic numbers bring permanent advantages to citizens' overall welfare? The research delves into whether greater personal income actually results in extended life expectancy and improved health among people.
+
+A comparison of GDP per capita and life expectancy data from UNICEF alongside global indicators analyzes these indicators across different countries. The data analysis corresponds to two primary United Nations Sustainable Development Goals (SDGs) which are:
+
+SDG 3: Good Health and Well-being
+
+SDG 8: Decent Work and Economic Growth.
+
+Our analysis examines GDP alongside population and life expectancy statistics through visual representations to reveal systematic trends and unexpected findings. The data exhibits improvements together with ongoing inequality across countries that range from rich to developing states.
+
+The report demonstrates that economic wealth supports public health initiatives although other variables contribute to health outcomes. Healthcare funding together with educational investments and establishing social equality guarantees people live longer and healthier lives without regard to their birthplace.
+
+---
+
+
+```{python}
+#| echo: false
+#| results: 'hide'
+#| warning: false
+#| message: false
+
+# Import libraries
+import polars as pl
+import geopandas as gpd
+from plotnine import *
+
+# Load data
+df = pl.read_csv("unicef_metadata.csv", infer_schema_length=10000, ignore_errors=True)
+
+# Select relevant columns and drop missing data
+df_clean = (
+  df.select([
+    "country", 
+    "year", 
+    "GDP per capita (constant 2015 US$)",
+    "Life expectancy at birth, total (years)",
+    "Population, total"
+  ])
+  .drop_nulls()
+)
+```
+
+---
+
+# GDP vs Life Expectancy (Scatter Plot)
+
+```{python}
+#| echo: true
+#| warning: false
+#| fig-align: center
+from plotnine import *
+
+(
+  ggplot(df_clean.to_pandas().query("year == 2015")) +
+  aes(
+      x='GDP per capita (constant 2015 US$)', # Changed to single quotes
+      y='Life expectancy at birth, total (years)', # Changed to single quotes
+      color='country' # Changed to single quotes
+  ) +
+  geom_point(alpha=0.6, size=3) +
+  geom_smooth(method='lm', se=False, color="black") +
+  theme_minimal() +
+  labs(
+      title="GDP per Capita vs Life Expectancy (2015)",
+      x="GDP per Capita (US$)",
+      y="Life Expectancy (Years)"
+  )
+)
+```
+
+---
+
+# Life Expectancy Trends (Time-Series)
+
+```{python}
+#| echo: true
+#| warning: false
+#| fig-align: center
+countries = ["India", "United States", "Germany", "Nigeria"]
+df_subset = df_clean.filter(pl.col("country").is_in(countries))
+df_subset = df_subset.rename({"Life expectancy at birth, total (years)": "life_expectancy"})
+
+(
+  ggplot(df_subset.to_pandas()) +
+  aes(x="year", y="life_expectancy", color="country") +
+  geom_line(size=1.2) +
+  theme_minimal() +
+  labs(
+      title="Life Expectancy Over Time (India, US, Germany, Nigeria)",
+      x="Year",
+      y="Life Expectancy"
+  )
+)
+
+```
+
+---
+
+# Top 10 Countries by Life Expectancy
+
+```{python}
+#| echo: true
+#| warning: false
+#| fig-align: center
+top10 = (
+    df_clean.filter(pl.col("year") == 2015)
+    .sort("Life expectancy at birth, total (years)", descending=True)
+    .head(10)
+)
+
+(
+  ggplot(top10.to_pandas()) +
+  aes(x="country", y="Life expectancy at birth, total (years)", fill="country") + # Removed backticks from column name
+  geom_col() +
+  theme_minimal() +
+  labs(
+      title="Top 10 Countries by Life Expectancy (2015)",
+      x="Country",
+      y="Life Expectancy"
+  ) +
+  theme(axis_text_x=element_text(rotation=45, ha="right"))
+)
+```
+
+---
+
+# Global Life Expectancy Map
+
+```{python}
+#| echo: true
+#| warning: false
+#| fig-align: center
+# Load shape file
+shape_world = gpd.read_file("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/world-administrative-boundaries/exports/shp")
+
+# Join with data
+lifeexp_2015 = (
+    df_clean.filter(pl.col("year") == 2015)
+    .to_pandas()
+)
+map_data = shape_world.merge(lifeexp_2015, how="left", left_on="name", right_on="country")
+
+# Plot map
+from plotnine import *
+
+(
+  ggplot(map_data) +
+  aes(fill="Life expectancy at birth, total (years)") + # Removed backticks around column name
+  geom_map() +
+  coord_fixed() +
+  scale_fill_gradient(low="yellow", high="red") +
+  labs(
+      title="Global Life Expectancy by Country (2015)",
+      subtitle="Data Source: UNICEF & World Map API",
+      fill="Life Expectancy"
+  ) +
+  theme_minimal()
+)
+```
+
+---
+
+# Conclusion
+
+The report presents data which shows dramatic life expectancy variations between nations together with their financial capability. Numerous elements apart from GDP determine life expectancy levels but GDP serves as a crucial determinant.
+
+**UNICEF and its partners must continue pushing for equity in health outcomes across all nations.**
+
+---
+
+
